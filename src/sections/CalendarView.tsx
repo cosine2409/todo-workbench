@@ -7,12 +7,12 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface Props {
   tasks: Task[]
-  onToggle: (id: string) => void
+  onEdit: (task: Task) => void
 }
 
 const WEEK_HEAD = ['日', '一', '二', '三', '四', '五', '六']
 
-export default function CalendarView({ tasks, onToggle }: Props) {
+export default function CalendarView({ tasks, onEdit }: Props) {
   const today = todayStr()
   const [cursor, setCursor] = useState(() => {
     const d = parseDate(today)
@@ -139,7 +139,7 @@ export default function CalendarView({ tasks, onToggle }: Props) {
               return (
                 <button
                   key={t.id}
-                  onClick={() => onToggle(t.id)}
+                  onClick={() => onEdit(t)}
                   className={`w-full text-left flex items-center gap-3 rounded-xl border px-3 py-2.5 ${meta.soft} ${t.done ? 'opacity-60' : ''}`}
                 >
                   <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${meta.dot}`} />

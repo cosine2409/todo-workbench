@@ -6,13 +6,13 @@ import { addDays, diffDays, parseDate, todayStr, weekdayCN } from '@/lib/dateUti
 
 interface Props {
   tasks: Task[]
-  onToggle: (id: string) => void
+  onEdit: (task: Task) => void
 }
 
 const DAY_W = 34 // 每天宽度 px
 const NAME_W = 104 // 左侧任务名列宽
 
-export default function GanttView({ tasks, onToggle }: Props) {
+export default function GanttView({ tasks, onEdit }: Props) {
   const today = todayStr()
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -99,7 +99,7 @@ export default function GanttView({ tasks, onToggle }: Props) {
                   const startIdx = Math.max(0, diffDays(minDate, t.startDate))
                   const span = Math.max(1, diffDays(t.startDate, t.endDate) + 1)
                   return (
-                    <button key={t.id} onClick={() => onToggle(t.id)} className="flex w-full border-b border-gray-50 text-left">
+                    <button key={t.id} onClick={() => onEdit(t)} className="flex w-full border-b border-gray-50 text-left">
                       <div className={`sticky left-0 z-20 shrink-0 bg-white px-2 py-2.5 border-r border-gray-100 ${t.done ? 'opacity-50' : ''}`} style={{ width: NAME_W }}>
                         <div className={`text-xs leading-tight line-clamp-2 ${t.done ? 'line-through text-gray-400' : 'text-gray-700'}`}>
                           {t.title}

@@ -92,9 +92,28 @@ export function useTasks() {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)))
   }, [])
 
+  const updateTask = useCallback((id: string, patch: Partial<Omit<Task, 'id'>>) => {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+  }, [])
+
   const removeTask = useCallback((id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  return { tasks, addTask, toggleDone, removeTask }
+  // 跨标签页 / 跨窗口同步：其他页面改动 localStorage 后，本页立即跟上
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== KEY || !e.newValue) return
+      try {
+        const incoming = JSON.parse(e.newValue) as Task[]
+        setTasks((prev) => (JSON.stringify(prev) === e.newValue ? prev : incoming))
+      } catch {
+        /* ignore */
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  return { tasks, addTask, toggleDone, updateTask, removeTask }
 }
