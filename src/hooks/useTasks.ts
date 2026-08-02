@@ -67,7 +67,19 @@ export function useTasks() {
         setTasks((prev) => {
           const known = new Set(prev.map((t) => t.externalId).filter(Boolean))
           const fresh = data.items!.filter((it) => it.externalId && !known.has(it.externalId))
-          if (fresh.length === 0) return prev
+          // 已有条目不更新（以本地数据为准），唯一例外：本地没有阶段信息而外部有，只补填阶段
+          const extStages = new Map(
+            data.items!.filter((it) => it.externalId && it.stages?.length).map((it) => [it.externalId, it.stages!]),
+          )
+          let patched = false
+          const withStages = prev.map((t) => {
+            if (t.externalId && !t.stages?.length && extStages.has(t.externalId)) {
+              patched = true
+              return { ...t, stages: [...extStages.get(t.externalId)!].sort((a, b) => a.startDate.localeCompare(b.startDate)) }
+            }
+            return t
+          })
+          if (fresh.length === 0) return patched ? withStages : prev
           const today = todayStr()
           const added: Task[] = fresh.map((it, i) => {
             const stages = it.stages?.length
@@ -94,7 +106,7 @@ export function useTasks() {
               stages,
             }
           })
-          return [...added, ...prev]
+          return [...added, ...withStages]
         })
       })
       .catch(() => {
