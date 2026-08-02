@@ -68,7 +68,7 @@ export function useTasks() {
             endDate: it.endDate || it.startDate || today,
             timeHint: it.timeHint,
             urgent: it.urgent ?? false,
-            done: false,
+            done: it.done ?? false,
             createdAt: Date.now() + i,
             source: 'feishu',
             externalId: it.externalId,

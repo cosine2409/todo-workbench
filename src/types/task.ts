@@ -30,6 +30,7 @@ export interface ExternalItem {
   endDate?: string
   timeHint?: string
   urgent?: boolean
+  done?: boolean
 }
 
 /** 紧急程度：done=已完成灰 / red=特别紧急 / yellow=时间紧张 / green=时间充裕 */
