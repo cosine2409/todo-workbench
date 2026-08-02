@@ -3,6 +3,8 @@ import type { ExternalItem, Task, Urgency } from '@/types/task'
 import { diffDays, todayStr } from '@/lib/dateUtils'
 
 const KEY = 'todo-workbench.tasks.v1'
+/** 一次性清理标记：v2 版本上线时清空所有已完成条目（此后完成的进归档页，不再自动删） */
+const PURGE_KEY = 'todo-workbench.purged-done.v2'
 
 /** 紧急程度：已完成灰 / 特别紧急红（逾期、明天内到期或手动标记）/ 紧张黄（3天内）/ 充裕绿 */
 export function urgencyOf(t: Task, today = todayStr()): Urgency {
@@ -46,6 +48,13 @@ export function useTasks() {
     localStorage.setItem(KEY, JSON.stringify(tasks))
   }, [tasks])
 
+  // 一次性清理：删除升级前遗留的所有已完成条目（含飞书同步的过期条目）
+  useEffect(() => {
+    if (localStorage.getItem(PURGE_KEY)) return
+    localStorage.setItem(PURGE_KEY, '1')
+    setTasks((prev) => (prev.some((t) => t.done) ? prev.filter((t) => !t.done) : prev))
+  }, [])
+
   // 启动时合并外部同步数据（飞书）：只新增未见过的 externalId，已有条目不更新，以本地数据为准
   const syncedRef = useRef(false)
   useEffect(() => {
@@ -60,19 +69,31 @@ export function useTasks() {
           const fresh = data.items!.filter((it) => it.externalId && !known.has(it.externalId))
           if (fresh.length === 0) return prev
           const today = todayStr()
-          const added: Task[] = fresh.map((it, i) => ({
-            id: `ext-${it.externalId}`,
-            title: it.title,
-            project: it.project || '飞书同步',
-            startDate: it.startDate || today,
-            endDate: it.endDate || it.startDate || today,
-            timeHint: it.timeHint,
-            urgent: it.urgent ?? false,
-            done: it.done ?? false,
-            createdAt: Date.now() + i,
-            source: 'feishu',
-            externalId: it.externalId,
-          }))
+          const added: Task[] = fresh.map((it, i) => {
+            const stages = it.stages?.length
+              ? [...it.stages].sort((a, b) => a.startDate.localeCompare(b.startDate))
+              : undefined
+            const span = stages?.length
+              ? {
+                  startDate: stages[0].startDate,
+                  endDate: stages.reduce((max, s) => (s.endDate > max ? s.endDate : max), stages[0].endDate),
+                }
+              : null
+            return {
+              id: `ext-${it.externalId}`,
+              title: it.title,
+              project: it.project || '飞书同步',
+              startDate: span?.startDate ?? it.startDate ?? today,
+              endDate: span?.endDate ?? it.endDate ?? it.startDate ?? today,
+              timeHint: it.timeHint,
+              urgent: it.urgent ?? false,
+              done: it.done ?? false,
+              createdAt: Date.now() + i,
+              source: 'feishu' as const,
+              externalId: it.externalId,
+              stages,
+            }
+          })
           return [...added, ...prev]
         })
       })

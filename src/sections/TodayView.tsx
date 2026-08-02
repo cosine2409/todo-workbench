@@ -1,6 +1,7 @@
 import type { Task } from '@/types/task'
-import { URGENCY_META } from '@/types/task'
+import { URGENCY_META, STAGE_META } from '@/types/task'
 import { urgencyOf } from '@/hooks/useTasks'
+import { currentStage } from '@/lib/stages'
 import { inRange, mdLabel, todayStr, weekdayCN, diffDays } from '@/lib/dateUtils'
 import { CheckCircle2, Circle, Clock, ChevronRight } from 'lucide-react'
 
@@ -14,6 +15,7 @@ function TaskRow({ task, onEdit, onComplete }: { task: Task; onEdit: (t: Task) =
   const u = urgencyOf(task)
   const meta = URGENCY_META[u]
   const overdue = !task.done && task.endDate < todayStr()
+  const stage = currentStage(task)
   return (
     <div className={`flex items-center gap-2 rounded-xl border px-3 py-3 ${meta.soft} ${task.done ? 'opacity-60' : ''}`}>
       {/* 完成按钮：仅此处的圆圈可勾选完成，点文字区只会打开编辑 */}
@@ -25,13 +27,18 @@ function TaskRow({ task, onEdit, onComplete }: { task: Task; onEdit: (t: Task) =
           <div className={`text-[15px] font-medium leading-snug ${task.done ? 'line-through text-gray-400' : 'text-gray-800'}`}>
             {task.title}
           </div>
-          <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+          <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
             <span className={`inline-block w-2 h-2 rounded-full ${meta.dot}`} />
             <span>{task.project}</span>
             <span>·</span>
             <span>
               {task.startDate === task.endDate ? mdLabel(task.endDate) : `${mdLabel(task.startDate)} ~ ${mdLabel(task.endDate)}`}
             </span>
+            {stage && (
+              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border ${STAGE_META[stage.key].soft} ${STAGE_META[stage.key].text}`}>
+                {STAGE_META[stage.key].label}阶段
+              </span>
+            )}
             {task.timeHint && (
               <span className="inline-flex items-center gap-0.5">
                 <Clock className="w-3 h-3" />
@@ -90,10 +97,9 @@ export default function TodayView({ tasks, onEdit, onComplete }: Props) {
       )}
 
       {done.length > 0 && (
-        <>
-          <div className="text-xs font-semibold text-gray-400 mb-2 mt-4">已完成</div>
-          <div className="space-y-2">{done.map((t) => <TaskRow key={t.id} task={t} onEdit={onEdit} onComplete={onComplete} />)}</div>
-        </>
+        <div className="text-xs text-gray-300 mb-2 mt-4 text-center">
+          已完成 {done.length} 项 → 已移入「归档」页
+        </div>
       )}
 
       {todays.length === 0 && (

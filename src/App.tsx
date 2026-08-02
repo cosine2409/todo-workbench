@@ -1,20 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { Routes, Route } from 'react-router'
-import { ListTodo, CalendarDays, ChartGantt, Plus, Undo2 } from 'lucide-react'
+import { ListTodo, CalendarDays, ChartGantt, Archive, Plus, Undo2 } from 'lucide-react'
 import { useTasks } from '@/hooks/useTasks'
 import type { Task } from '@/types/task'
 import TodayView from '@/sections/TodayView'
 import CalendarView from '@/sections/CalendarView'
 import GanttView from '@/sections/GanttView'
+import ArchiveView from '@/sections/ArchiveView'
 import AddTaskSheet from '@/sections/AddTaskSheet'
 import EditTaskSheet from '@/sections/EditTaskSheet'
 
-type Tab = 'today' | 'calendar' | 'gantt'
+type Tab = 'today' | 'calendar' | 'gantt' | 'archive'
 
 const TABS: { key: Tab; label: string; icon: typeof ListTodo }[] = [
   { key: 'today', label: '今日', icon: ListTodo },
   { key: 'calendar', label: '日历', icon: CalendarDays },
   { key: 'gantt', label: '甘特图', icon: ChartGantt },
+  { key: 'archive', label: '归档', icon: Archive },
 ]
 
 function Workbench() {
@@ -56,6 +58,14 @@ function Workbench() {
       {tab === 'today' && <TodayView tasks={tasks} onEdit={setEditing} onComplete={completeWithUndo} />}
       {tab === 'calendar' && <CalendarView tasks={tasks} onEdit={setEditing} />}
       {tab === 'gantt' && <GanttView tasks={tasks} onEdit={setEditing} />}
+      {tab === 'archive' && (
+        <ArchiveView
+          tasks={tasks}
+          onEdit={setEditing}
+          onRestore={toggleDone}
+          onDelete={removeTask}
+        />
+      )}
 
       {/* 悬浮添加按钮 */}
       <button
