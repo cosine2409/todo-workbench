@@ -49,8 +49,15 @@ export function useTasks() {
     return s
   })
 
+  // 记录"真实本地修改"的时间；单纯打开应用/云端下发都不算本地修改
+  const firstPersist = useRef(true)
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(tasks))
+    // 首次挂载只是加载缓存，不算本地修改（否则旧数据会被误判为最新并覆盖云端）
+    if (firstPersist.current) {
+      firstPersist.current = false
+      return
+    }
     // 云端下发的数据不重算时间戳（否则会反过来覆盖云端）
     if (applyingRemote.current) {
       applyingRemote.current = false
