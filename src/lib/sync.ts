@@ -32,10 +32,12 @@ export function saveSpace(code: string | null) {
   }
 }
 
-/** 云端存储的完整状态：整份任务数组 + 最后修改时间戳（新者胜） */
+/** 云端存储的完整状态：整份任务数组 + 最后修改时间戳（新者胜）+ 已删外部条目的墓碑（防止同步源重新灌入） */
 export interface CloudState {
   tasks: Task[]
   updatedAt: number
+  /** 已被用户删除的外部来源条目 ID（飞书等），各设备合并后不再重新导入 */
+  deletedExternals?: string[]
 }
 
 /** 生成易读易输的同步码，如 wuma-k7p2x9 */

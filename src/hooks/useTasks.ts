@@ -10,6 +10,8 @@ const PURGE_KEY = 'todo-workbench.purged-done.v2'
 const TS_KEY = 'todo-workbench.state.updatedAt'
 /** 同步规则版本：v2 起首次拉取无条件以云端为准（避免修复前被污染的时间戳把旧数据推回云端） */
 const EPOCH_KEY = 'todo-workbench.sync.v2'
+/** 已删除的外部来源条目（飞书）墓碑：合并时跳过，防止删除后又被同步源灌回来 */
+const DEL_EXT_KEY = 'todo-workbench.deleted-externals'
 
 export type SyncStatus = 'off' | 'idle' | 'syncing' | 'error'
 
@@ -51,8 +53,23 @@ export function useTasks() {
     return s
   })
 
+  // 已删除的外部条目墓碑（跨设备共享，防止飞书同步源把已删条目灌回来）
+  const [delExt, setDelExt] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(DEL_EXT_KEY) || '[]') as string[]
+    } catch {
+      return []
+    }
+  })
+  const delExtRef = useRef(delExt)
+  delExtRef.current = delExt
+  useEffect(() => {
+    localStorage.setItem(DEL_EXT_KEY, JSON.stringify(delExt))
+  }, [delExt])
+
   // 记录"真实本地修改"的时间；单纯打开应用/云端下发都不算本地修改
   const firstPersist = useRef(true)
+  const dirtyRef = useRef(false) // 只有真实本地编辑才允许推送（打开应用绝不主动推）
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(tasks))
     // 首次挂载只是加载缓存，不算本地修改（否则旧数据会被误判为最新并覆盖云端）
@@ -67,6 +84,7 @@ export function useTasks() {
     }
     const ts = Date.now()
     localStorage.setItem(TS_KEY, String(ts))
+    dirtyRef.current = true
     setUpdatedAt(ts)
   }, [tasks])
 
@@ -88,7 +106,8 @@ export function useTasks() {
         if (!data?.items?.length) return
         setTasks((prev) => {
           const known = new Set(prev.map((t) => t.externalId).filter(Boolean))
-          const fresh = data.items!.filter((it) => it.externalId && !known.has(it.externalId))
+          const tombstoned = new Set(delExtRef.current)
+          const fresh = data.items!.filter((it) => it.externalId && !known.has(it.externalId) && !tombstoned.has(it.externalId))
           // 已有条目不更新（以本地数据为准），唯一例外：本地没有阶段信息而外部有，只补填阶段
           const extStages = new Map(
             data.items!.filter((it) => it.externalId && it.stages?.length).map((it) => [it.externalId, it.stages!]),
@@ -152,7 +171,14 @@ export function useTasks() {
   }, [])
 
   const removeTask = useCallback((id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id))
+    setTasks((prev) => {
+      const victim = prev.find((t) => t.id === id)
+      // 外部来源（飞书）条目删除后记录墓碑，防止下次合并时被重新灌入
+      if (victim?.externalId) {
+        setDelExt((d) => (d.includes(victim.externalId!) ? d : [...d, victim.externalId!]))
+      }
+      return prev.filter((t) => t.id !== id)
+    })
   }, [])
 
   // 跨标签页 / 跨窗口同步：其他页面改动 localStorage 后，本页立即跟上
@@ -201,15 +227,23 @@ export function useTasks() {
       // v2 规则升级后的首次拉取：云端有数据就无条件以云端为准，防止旧时间戳污染
       const firstSync = !localStorage.getItem(EPOCH_KEY)
       const cloud = await cloudGet(sp)
+      // 合并墓碑（任何一端删除的外部条目，所有端都不再导入）
+      const tombstones = [...new Set([...delExtRef.current, ...(cloud?.deletedExternals ?? [])])]
+      if (tombstones.length !== delExtRef.current.length) setDelExt(tombstones)
+      const payload = () => ({
+        tasks: tasksRef.current.filter((t) => !t.externalId || !tombstones.includes(t.externalId)),
+        updatedAt: updatedAtRef.current,
+        deletedExternals: tombstones,
+      })
       if (!cloud) {
-        await cloudPut(sp, { tasks: tasksRef.current, updatedAt: updatedAtRef.current })
+        await cloudPut(sp, payload())
       } else if (firstSync || cloud.updatedAt > updatedAtRef.current) {
         applyingRemote.current = true
         localStorage.setItem(TS_KEY, String(cloud.updatedAt))
         setUpdatedAt(cloud.updatedAt)
-        setTasks(cloud.tasks)
+        setTasks(cloud.tasks.filter((t) => !t.externalId || !tombstones.includes(t.externalId)))
       } else if (cloud.updatedAt < updatedAtRef.current) {
-        await cloudPut(sp, { tasks: tasksRef.current, updatedAt: updatedAtRef.current })
+        await cloudPut(sp, payload())
       }
       localStorage.setItem(EPOCH_KEY, '1')
       setSyncStatus('idle')
@@ -221,15 +255,20 @@ export function useTasks() {
     }
   }, [])
 
-  // 本地改动后 1.5s 防抖推送到云端
+  // 本地真实改动后 1.5s 防抖推送到云端（打开应用不会触发：dirtyRef 把关）
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    if (!SYNC_ENABLED || !space || updatedAt === 0) return
+    if (!SYNC_ENABLED || !space || updatedAt === 0 || !dirtyRef.current) return
+    dirtyRef.current = false
     if (pushTimer.current) clearTimeout(pushTimer.current)
     pushTimer.current = setTimeout(async () => {
       try {
         setSyncStatus('syncing')
-        await cloudPut(space, { tasks: tasksRef.current, updatedAt })
+        await cloudPut(space, {
+          tasks: tasksRef.current.filter((t) => !t.externalId || !delExtRef.current.includes(t.externalId)),
+          updatedAt,
+          deletedExternals: delExtRef.current,
+        })
         setSyncStatus('idle')
         setLastSyncAt(Date.now())
       } catch {
