@@ -75,3 +75,27 @@ export async function cloudPut(space: string, state: CloudState): Promise<void> 
   })
   if (!r.ok) throw new Error(`cloud put ${r.status}`)
 }
+
+/** 云端用量统计：全库空间数与数据量（字节）、本空间大小 */
+export interface CloudStats {
+  spaces: number
+  totalBytes: number
+  myBytes: number | null
+}
+
+export async function cloudStats(mySpace: string | null): Promise<CloudStats> {
+  const r = await fetch(`${SYNC_CONF.url}/rest/v1/${SYNC_CONF.table}?select=space,state`, {
+    headers: headers(),
+    cache: 'no-store',
+  })
+  if (!r.ok) throw new Error(`stats ${r.status}`)
+  const rows = (await r.json()) as { space: string; state: unknown }[]
+  let total = 0
+  let mine: number | null = null
+  for (const row of rows) {
+    const bytes = new Blob([JSON.stringify(row.state)]).size
+    total += bytes
+    if (mySpace && row.space === mySpace) mine = bytes
+  }
+  return { spaces: rows.length, totalBytes: total, myBytes: mine }
+}

@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react'
 import type { SyncStatus } from '@/hooks/useTasks'
-import { X, Cloud, CloudOff, Copy, Check, RefreshCw, LogOut } from 'lucide-react'
+import { cloudStats, type CloudStats } from '@/lib/sync'
+import { X, Cloud, CloudOff, Copy, Check, RefreshCw, LogOut, Database } from 'lucide-react'
+
+/** Supabase 免费版数据库存储上限 500MB */
+const FREE_QUOTA_BYTES = 500 * 1024 * 1024
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / 1024 / 1024).toFixed(2)} MB`
+}
 
 interface Props {
   open: boolean
@@ -24,13 +34,20 @@ const STATUS_TEXT: Record<SyncStatus, { label: string; cls: string }> = {
 export default function SyncSheet({ open, onClose, space, status, lastSyncAt, onCreateSpace, onJoinSpace, onLeaveSpace, onSyncNow }: Props) {
   const [code, setCode] = useState('')
   const [copied, setCopied] = useState(false)
+  const [stats, setStats] = useState<CloudStats | null>(null)
+  const [statsErr, setStatsErr] = useState(false)
 
   useEffect(() => {
     if (open) {
       setCode('')
       setCopied(false)
+      setStats(null)
+      setStatsErr(false)
+      cloudStats(space)
+        .then(setStats)
+        .catch(() => setStatsErr(true))
     }
-  }, [open])
+  }, [open, space])
 
   if (!open) return null
 
@@ -107,6 +124,32 @@ export default function SyncSheet({ open, onClose, space, status, lastSyncAt, on
 
             <div className="text-[11px] text-gray-400 leading-relaxed">
               改动会自动上传，打开应用或每 30 秒自动拉取最新数据。同步码即数据钥匙，请勿分享给无关人员。
+            </div>
+
+            {/* 云端用量 */}
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-2">
+                <Database className="w-3.5 h-3.5" /> 云端用量
+                <span className="ml-auto font-normal text-gray-400">免费额度 500 MB</span>
+              </div>
+              {stats ? (
+                <>
+                  <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all"
+                      style={{ width: `${Math.max(0.5, Math.min(100, (stats.totalBytes / FREE_QUOTA_BYTES) * 100))}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                    <span>
+                      已用 {fmtBytes(stats.totalBytes)}（{(stats.totalBytes / FREE_QUOTA_BYTES * 100).toFixed(4)}%）· {stats.spaces} 个空间
+                    </span>
+                    {stats.myBytes != null && <span>本空间 {fmtBytes(stats.myBytes)}</span>}
+                  </div>
+                </>
+              ) : (
+                <div className="text-xs text-gray-400">{statsErr ? '用量读取失败' : '读取中…'}</div>
+              )}
             </div>
           </div>
         ) : (

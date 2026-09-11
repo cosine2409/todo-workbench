@@ -69,11 +69,11 @@ function Workbench() {
         />
       )}
 
-      {/* 云同步入口（右上角） */}
+      {/* 云同步入口（左下角悬浮，与右下角新建按钮对称） */}
       {sync.enabled && (
         <button
           onClick={() => setSyncOpen(true)}
-          className="fixed top-3 right-4 z-40 p-2.5 rounded-full bg-white/90 backdrop-blur border border-gray-100 shadow-sm active:scale-90 transition-transform sm:right-[calc(50%-14rem)]"
+          className="fixed bottom-24 left-5 z-40 w-11 h-11 rounded-full bg-white/95 backdrop-blur border border-gray-100 shadow-md flex items-center justify-center active:scale-90 transition-transform sm:left-[calc(50%-16rem)]"
           aria-label="云端同步"
         >
           {sync.space ? (
