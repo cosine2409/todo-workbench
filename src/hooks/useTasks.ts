@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ExternalItem, Task, Urgency } from '@/types/task'
 import { diffDays, todayStr } from '@/lib/dateUtils'
+import { SYNC_ENABLED, cloudGet, cloudPut, getSpace, newSpaceCode, saveSpace } from '@/lib/sync'
 
 const KEY = 'todo-workbench.tasks.v1'
 /** 一次性清理标记：v2 版本上线时清空所有已完成条目（此后完成的进归档页，不再自动删） */
 const PURGE_KEY = 'todo-workbench.purged-done.v2'
+/** 本地状态最后修改时间戳（用于云端新旧比较） */
+const TS_KEY = 'todo-workbench.state.updatedAt'
+
+export type SyncStatus = 'off' | 'idle' | 'syncing' | 'error'
 
 /** 紧急程度：已完成灰 / 特别紧急红（逾期、明天内到期或手动标记）/ 紧张黄（3天内）/ 充裕绿 */
 export function urgencyOf(t: Task, today = todayStr()): Urgency {
@@ -46,6 +51,14 @@ export function useTasks() {
 
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(tasks))
+    // 云端下发的数据不重算时间戳（否则会反过来覆盖云端）
+    if (applyingRemote.current) {
+      applyingRemote.current = false
+      return
+    }
+    const ts = Date.now()
+    localStorage.setItem(TS_KEY, String(ts))
+    setUpdatedAt(ts)
   }, [tasks])
 
   // 一次性清理：删除升级前遗留的所有已完成条目（含飞书同步的过期条目）
@@ -148,5 +161,127 @@ export function useTasks() {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
-  return { tasks, addTask, toggleDone, updateTask, removeTask }
+  // ---------------- 云端同步（Supabase，整份状态新者胜） ----------------
+  const [updatedAt, setUpdatedAt] = useState<number>(() => {
+    try {
+      return Number(localStorage.getItem(TS_KEY) || 0)
+    } catch {
+      return 0
+    }
+  })
+  const [space, setSpace] = useState<string | null>(() => getSpace())
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(space && SYNC_ENABLED ? 'idle' : 'off')
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null)
+
+  const tasksRef = useRef(tasks)
+  tasksRef.current = tasks
+  const updatedAtRef = useRef(updatedAt)
+  updatedAtRef.current = updatedAt
+  const spaceRef = useRef(space)
+  spaceRef.current = space
+  const applyingRemote = useRef(false)
+  const pullingRef = useRef(false)
+
+  /** 从云端拉取：云端更新则覆盖本地；云端为空或更旧则把本地推上去 */
+  const pull = useCallback(async () => {
+    const sp = spaceRef.current
+    if (!SYNC_ENABLED || !sp || pullingRef.current) return
+    pullingRef.current = true
+    setSyncStatus('syncing')
+    try {
+      const cloud = await cloudGet(sp)
+      if (!cloud) {
+        await cloudPut(sp, { tasks: tasksRef.current, updatedAt: updatedAtRef.current })
+      } else if (cloud.updatedAt > updatedAtRef.current) {
+        applyingRemote.current = true
+        localStorage.setItem(TS_KEY, String(cloud.updatedAt))
+        setUpdatedAt(cloud.updatedAt)
+        setTasks(cloud.tasks)
+      } else if (cloud.updatedAt < updatedAtRef.current) {
+        await cloudPut(sp, { tasks: tasksRef.current, updatedAt: updatedAtRef.current })
+      }
+      setSyncStatus('idle')
+      setLastSyncAt(Date.now())
+    } catch {
+      setSyncStatus('error')
+    } finally {
+      pullingRef.current = false
+    }
+  }, [])
+
+  // 本地改动后 1.5s 防抖推送到云端
+  const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (!SYNC_ENABLED || !space || updatedAt === 0) return
+    if (pushTimer.current) clearTimeout(pushTimer.current)
+    pushTimer.current = setTimeout(async () => {
+      try {
+        setSyncStatus('syncing')
+        await cloudPut(space, { tasks: tasksRef.current, updatedAt })
+        setSyncStatus('idle')
+        setLastSyncAt(Date.now())
+      } catch {
+        setSyncStatus('error')
+      }
+    }, 1500)
+    return () => {
+      if (pushTimer.current) clearTimeout(pushTimer.current)
+    }
+  }, [updatedAt, space])
+
+  // 进入空间后：立即拉一次，之后每 30s 轮询 + 页面回到前台时拉取
+  useEffect(() => {
+    if (!SYNC_ENABLED || !space) return
+    pull()
+    const iv = setInterval(pull, 30000)
+    const onVis = () => {
+      if (document.visibilityState === 'visible') pull()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      clearInterval(iv)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [space, pull])
+
+  /** 创建新同步空间：生成同步码并把当前本地数据上传 */
+  const createSpace = useCallback(() => {
+    const code = newSpaceCode()
+    saveSpace(code)
+    setSpace(code)
+    return code
+  }, [])
+
+  /** 加入已有空间：若云端数据更新，将以云端为准 */
+  const joinSpace = useCallback((code: string) => {
+    const c = code.trim().toLowerCase()
+    if (!c) return
+    saveSpace(c)
+    setSpace(c)
+  }, [])
+
+  /** 退出同步（数据保留在本机，不再上传） */
+  const leaveSpace = useCallback(() => {
+    saveSpace(null)
+    setSpace(null)
+    setSyncStatus('off')
+  }, [])
+
+  return {
+    tasks,
+    addTask,
+    toggleDone,
+    updateTask,
+    removeTask,
+    sync: {
+      enabled: SYNC_ENABLED,
+      space,
+      status: syncStatus,
+      lastSyncAt,
+      createSpace,
+      joinSpace,
+      leaveSpace,
+      syncNow: pull,
+    },
+  }
 }

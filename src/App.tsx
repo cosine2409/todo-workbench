@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Routes, Route } from 'react-router'
-import { ListTodo, CalendarDays, ChartGantt, Archive, Plus, Undo2 } from 'lucide-react'
+import { ListTodo, CalendarDays, ChartGantt, Archive, Plus, Undo2, Cloud, CloudOff } from 'lucide-react'
 import { useTasks } from '@/hooks/useTasks'
 import type { Task } from '@/types/task'
 import TodayView from '@/sections/TodayView'
@@ -9,6 +9,7 @@ import GanttView from '@/sections/GanttView'
 import ArchiveView from '@/sections/ArchiveView'
 import AddTaskSheet from '@/sections/AddTaskSheet'
 import EditTaskSheet from '@/sections/EditTaskSheet'
+import SyncSheet from '@/sections/SyncSheet'
 
 type Tab = 'today' | 'calendar' | 'gantt' | 'archive'
 
@@ -22,10 +23,11 @@ const TABS: { key: Tab; label: string; icon: typeof ListTodo }[] = [
 function Workbench() {
   const [tab, setTab] = useState<Tab>('today')
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [syncOpen, setSyncOpen] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
   const [undoInfo, setUndoInfo] = useState<{ id: string; title: string } | null>(null)
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const { tasks, addTask, toggleDone, updateTask, removeTask } = useTasks()
+  const { tasks, addTask, toggleDone, updateTask, removeTask, sync } = useTasks()
 
   // 完成后 6 秒内可撤销，防止误触
   const completeWithUndo = (id: string) => {
@@ -67,6 +69,21 @@ function Workbench() {
         />
       )}
 
+      {/* 云同步入口（右上角） */}
+      {sync.enabled && (
+        <button
+          onClick={() => setSyncOpen(true)}
+          className="fixed top-3 right-4 z-40 p-2.5 rounded-full bg-white/90 backdrop-blur border border-gray-100 shadow-sm active:scale-90 transition-transform sm:right-[calc(50%-14rem)]"
+          aria-label="云端同步"
+        >
+          {sync.space ? (
+            <Cloud className={`w-5 h-5 ${sync.status === 'error' ? 'text-red-400' : sync.status === 'syncing' ? 'text-blue-400 animate-pulse' : 'text-emerald-500'}`} />
+          ) : (
+            <CloudOff className="w-5 h-5 text-gray-300" />
+          )}
+        </button>
+      )}
+
       {/* 悬浮添加按钮 */}
       <button
         onClick={() => setSheetOpen(true)}
@@ -105,6 +122,17 @@ function Workbench() {
       </nav>
 
       <AddTaskSheet open={sheetOpen} onClose={() => setSheetOpen(false)} onAdd={addTask} />
+      <SyncSheet
+        open={syncOpen}
+        onClose={() => setSyncOpen(false)}
+        space={sync.space}
+        status={sync.status}
+        lastSyncAt={sync.lastSyncAt}
+        onCreateSpace={sync.createSpace}
+        onJoinSpace={sync.joinSpace}
+        onLeaveSpace={sync.leaveSpace}
+        onSyncNow={sync.syncNow}
+      />
       <EditTaskSheet
         task={editingTask}
         onClose={() => setEditing(null)}
