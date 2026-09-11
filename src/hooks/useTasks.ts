@@ -8,6 +8,8 @@ const KEY = 'todo-workbench.tasks.v1'
 const PURGE_KEY = 'todo-workbench.purged-done.v2'
 /** 本地状态最后修改时间戳（用于云端新旧比较） */
 const TS_KEY = 'todo-workbench.state.updatedAt'
+/** 同步规则版本：v2 起首次拉取无条件以云端为准（避免修复前被污染的时间戳把旧数据推回云端） */
+const EPOCH_KEY = 'todo-workbench.sync.v2'
 
 export type SyncStatus = 'off' | 'idle' | 'syncing' | 'error'
 
@@ -196,10 +198,12 @@ export function useTasks() {
     pullingRef.current = true
     setSyncStatus('syncing')
     try {
+      // v2 规则升级后的首次拉取：云端有数据就无条件以云端为准，防止旧时间戳污染
+      const firstSync = !localStorage.getItem(EPOCH_KEY)
       const cloud = await cloudGet(sp)
       if (!cloud) {
         await cloudPut(sp, { tasks: tasksRef.current, updatedAt: updatedAtRef.current })
-      } else if (cloud.updatedAt > updatedAtRef.current) {
+      } else if (firstSync || cloud.updatedAt > updatedAtRef.current) {
         applyingRemote.current = true
         localStorage.setItem(TS_KEY, String(cloud.updatedAt))
         setUpdatedAt(cloud.updatedAt)
@@ -207,6 +211,7 @@ export function useTasks() {
       } else if (cloud.updatedAt < updatedAtRef.current) {
         await cloudPut(sp, { tasks: tasksRef.current, updatedAt: updatedAtRef.current })
       }
+      localStorage.setItem(EPOCH_KEY, '1')
       setSyncStatus('idle')
       setLastSyncAt(Date.now())
     } catch {
