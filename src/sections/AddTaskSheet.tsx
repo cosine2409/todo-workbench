@@ -27,6 +27,7 @@ export default function AddTaskSheet({ open, onClose, onAdd }: Props) {
   const [text, setText] = useState('')
   const [listening, setListening] = useState(false)
   const [voiceSupported, setVoiceSupported] = useState(true)
+  const [voiceError, setVoiceError] = useState<'network' | 'denied' | 'nospeech' | 'other' | null>(null)
   const recogRef = useRef<any>(null)
 
   const parsed = useMemo(() => (text.trim() ? parseTaskInput(text) : null), [text])
@@ -35,6 +36,7 @@ export default function AddTaskSheet({ open, onClose, onAdd }: Props) {
     if (open) {
       setText('')
       setListening(false)
+      setVoiceError(null)
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition
       setVoiceSupported(!!SR)
     }
@@ -61,6 +63,7 @@ export default function AddTaskSheet({ open, onClose, onAdd }: Props) {
       setListening(false)
       return
     }
+    setVoiceError(null)
     const r = new SR()
     r.lang = 'zh-CN'
     r.continuous = true
@@ -72,7 +75,14 @@ export default function AddTaskSheet({ open, onClose, onAdd }: Props) {
       }
       if (final) setText((prev) => (prev ? prev + '，' : '') + final)
     }
-    r.onerror = () => setListening(false)
+    r.onerror = (e: any) => {
+      setListening(false)
+      const err = e?.error || ''
+      if (err === 'network') setVoiceError('network')
+      else if (err === 'not-allowed' || err === 'service-not-allowed') setVoiceError('denied')
+      else if (err === 'no-speech') setVoiceError('nospeech')
+      else if (err) setVoiceError('other')
+    }
     r.onend = () => setListening(false)
     recogRef.current = r
     try {
@@ -80,6 +90,7 @@ export default function AddTaskSheet({ open, onClose, onAdd }: Props) {
       setListening(true)
     } catch {
       setListening(false)
+      setVoiceError('other')
     }
   }
 
@@ -135,10 +146,30 @@ export default function AddTaskSheet({ open, onClose, onAdd }: Props) {
             {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
         </div>
-        {!voiceSupported && (
-          <div className="text-xs text-amber-500 mt-1.5">当前浏览器不支持语音识别，可改用系统键盘的语音输入</div>
-        )}
         {listening && <div className="text-xs text-red-500 mt-1.5">🎙 正在聆听，说完自动识别…</div>}
+
+        {/* 语音不可用/失败时的分级指引 */}
+        {!voiceSupported && (
+          <div className="mt-1.5 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-xs text-amber-700 leading-relaxed">
+            当前浏览器不支持语音识别（iPhone 的 Safari 暂不支持）。可直接用<strong>键盘自带的语音输入</strong>：聚焦输入框后点键盘上的麦克风键说话即可。
+          </div>
+        )}
+        {voiceError === 'network' && (
+          <div className="mt-1.5 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-xs text-amber-700 leading-relaxed">
+            语音识别服务连不上（Chrome 的识别走 Google 服务器，国内网络不可用）。解决办法：① 电脑换 <strong>Edge 浏览器</strong>（走微软服务器，国内可用）；② 直接用手机<strong>键盘自带的语音输入</strong>。
+          </div>
+        )}
+        {voiceError === 'denied' && (
+          <div className="mt-1.5 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-xs text-amber-700 leading-relaxed">
+            没有麦克风权限。请点浏览器地址栏左侧的锁形图标，允许麦克风后重试。
+          </div>
+        )}
+        {voiceError === 'nospeech' && (
+          <div className="text-xs text-amber-500 mt-1.5">没听清，请靠近麦克风再说一次</div>
+        )}
+        {voiceError === 'other' && (
+          <div className="text-xs text-amber-500 mt-1.5">语音识别启动失败，可改用键盘自带的语音输入</div>
+        )}
 
         {parsed && (
           <div className="mt-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
