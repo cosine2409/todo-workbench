@@ -6,8 +6,8 @@ import type { Task } from '@/types/task'
  * 数据空间由「同步码」隔离：知道同步码即可读写该空间，请勿分享给无关人员。
  */
 export const SYNC_CONF = {
-  url: '',
-  anonKey: '',
+  url: 'https://fomkorvduqsfuxobffym.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZvbWtvcnZkdXFzZnV4b2JmZnltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNTUyMTYsImV4cCI6MjEwNDYzMTIxNn0.K4MQSlAR0XD4lFuSbmOvQlX4vLk1dId7Z-cO7-0u5ZQ',
   table: 'kv',
 }
 
