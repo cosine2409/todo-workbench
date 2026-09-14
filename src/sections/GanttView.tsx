@@ -17,11 +17,11 @@ export default function GanttView({ tasks, onEdit }: Props) {
   const today = todayStr()
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const { days, groups, minDate } = useMemo(() => {
+  const { days, active, minDate } = useMemo(() => {
     // 已完成的任务在甘特图中隐藏（去「归档」页查看）
     const active = [...tasks]
       .filter((t) => !t.done)
-      .sort((a, b) => a.project.localeCompare(b.project) || a.startDate.localeCompare(b.startDate))
+      .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.endDate.localeCompare(b.endDate))
     let min = addDays(today, -2)
     let max = addDays(today, 13)
     for (const t of active) {
@@ -35,13 +35,7 @@ export default function GanttView({ tasks, onEdit }: Props) {
       days.push(d)
       d = addDays(d, 1)
     }
-    const groups: { project: string; tasks: Task[] }[] = []
-    for (const t of active) {
-      const g = groups.find((x) => x.project === t.project)
-      if (g) g.tasks.push(t)
-      else groups.push({ project: t.project, tasks: [t] })
-    }
-    return { days, groups, minDate: min }
+    return { days, active, minDate: min }
   }, [tasks, today])
 
   // 初次渲染滚动到今天附近
@@ -59,7 +53,7 @@ export default function GanttView({ tasks, onEdit }: Props) {
     <div className="px-4 pb-28">
       <div className="pt-5 pb-3">
         <h1 className="text-2xl font-bold text-gray-900">甘特图</h1>
-        <div className="text-sm text-gray-500 mt-1">按项目分组，横轴为时间，左右滑动查看</div>
+        <div className="text-sm text-gray-500 mt-1">横轴为时间，左右滑动查看</div>
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
@@ -90,15 +84,7 @@ export default function GanttView({ tasks, onEdit }: Props) {
               style={{ left: NAME_W + todayIdx * DAY_W + DAY_W / 2 }}
             />
 
-            {groups.map((g) => (
-              <div key={g.project}>
-                <div className="flex bg-gray-50 border-b border-gray-100">
-                  <div className="sticky left-0 z-20 shrink-0 bg-gray-50 px-2 py-1.5 text-xs font-semibold text-gray-600 border-r border-gray-100" style={{ width: NAME_W }}>
-                    📁 {g.project}
-                  </div>
-                  <div style={{ width: days.length * DAY_W }} />
-                </div>
-                {g.tasks.map((t) => {
+            {active.map((t) => {
                   const meta = URGENCY_META[urgencyOf(t)]
                   const stages = sortedStages(t)
                   const prog = stageProgress(t)
@@ -172,11 +158,9 @@ export default function GanttView({ tasks, onEdit }: Props) {
                       </div>
                     </button>
                   )
-                })}
-              </div>
-            ))}
+            })}
 
-            {groups.length === 0 && <div className="text-center text-sm text-gray-300 py-10">暂无进行中的任务（已完成见「归档」）</div>}
+            {active.length === 0 && <div className="text-center text-sm text-gray-300 py-10">暂无进行中的任务（已完成见「归档」）</div>}
           </div>
         </div>
       </div>

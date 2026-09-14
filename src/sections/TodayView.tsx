@@ -64,8 +64,6 @@ function TaskRow({
             </div>
             <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
               <span className={`inline-block w-2 h-2 rounded-full ${logged ? LOGGED.dot : meta.dot}`} />
-              <span>{task.project}</span>
-              <span>·</span>
               <span>
                 {task.startDate === task.endDate ? mdLabel(task.endDate) : `${mdLabel(task.startDate)} ~ ${mdLabel(task.endDate)}`}
               </span>

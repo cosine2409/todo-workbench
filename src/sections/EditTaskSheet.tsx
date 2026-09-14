@@ -22,7 +22,6 @@ interface StageRow extends TaskStage {
 
 export default function EditTaskSheet({ task, onClose, onSave, onDelete, onComplete }: Props) {
   const [title, setTitle] = useState('')
-  const [project, setProject] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [timeHint, setTimeHint] = useState('')
@@ -33,7 +32,6 @@ export default function EditTaskSheet({ task, onClose, onSave, onDelete, onCompl
   useEffect(() => {
     if (task) {
       setTitle(task.title)
-      setProject(task.project)
       setStartDate(task.startDate)
       setEndDate(task.endDate)
       setTimeHint(task.timeHint ?? '')
@@ -70,7 +68,6 @@ export default function EditTaskSheet({ task, onClose, onSave, onDelete, onCompl
 
   const dirty =
     title.trim() !== task.title ||
-    project.trim() !== task.project ||
     startDate !== task.startDate ||
     endDate !== task.endDate ||
     timeHint !== (task.timeHint ?? '') ||
@@ -107,7 +104,6 @@ export default function EditTaskSheet({ task, onClose, onSave, onDelete, onCompl
     }
     onSave(task.id, {
       title: title.trim(),
-      project: project.trim() || '日常',
       startDate: s,
       endDate: e,
       timeHint: timeHint.trim() || undefined,
@@ -144,16 +140,6 @@ export default function EditTaskSheet({ task, onClose, onSave, onDelete, onCompl
               className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-[15px] outline-none focus:border-gray-400 resize-none"
             />
           </div>
-          <div>
-            <label className="text-xs text-gray-400 block mb-1">项目</label>
-            <input
-              value={project}
-              onChange={(e) => setProject(e.target.value)}
-              placeholder="日常"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-[15px] outline-none focus:border-gray-400"
-            />
-          </div>
-
           {/* 阶段编辑 */}
           <div>
             <div className="flex items-center justify-between mb-1.5">

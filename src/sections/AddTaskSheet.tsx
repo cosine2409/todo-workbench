@@ -124,14 +124,14 @@ export default function AddTaskSheet({ open, onClose, onAdd }: Props) {
 
         <div className="text-xs text-gray-400 mb-2 flex items-center gap-1">
           <Sparkles className="w-3.5 h-3.5" />
-          试试模糊输入：「【官网改版】设计稿下周五前完成，特别紧急」
+          试试模糊输入：「官网设计稿 15到18号做脚本 20号拍摄，特别紧急」
         </div>
 
         <div className="relative">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="输入或语音说出事项，自动识别时间、项目和紧急程度…"
+            placeholder="输入或语音说出事项，自动识别时间、阶段和紧急程度…"
             rows={3}
             className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-14 text-[15px] outline-none focus:border-gray-400 resize-none"
             autoFocus
@@ -180,9 +180,6 @@ export default function AddTaskSheet({ open, onClose, onAdd }: Props) {
                   {c}
                 </span>
               ))}
-              {!parsed.project && (
-                <span className="text-xs bg-white border border-gray-200 rounded-full px-2.5 py-1 text-gray-400">📁 默认：日常</span>
-              )}
             </div>
           </div>
         )}

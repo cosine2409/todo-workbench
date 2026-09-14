@@ -148,7 +148,7 @@ export default function CalendarView({ tasks, onEdit }: Props) {
                       {t.title}
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">
-                      {t.project} · {isNode ? '节点日' : '进行中'}
+                      {isNode ? '节点日' : '进行中'}
                       {t.timeHint ? ` · ${t.timeHint}` : ''}
                     </div>
                   </div>

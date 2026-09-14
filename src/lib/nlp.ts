@@ -68,7 +68,6 @@ export function parseTaskInput(raw: string): ParsedInput {
     project = (pm[1] || pm[2] || pm[3] || pm[4] || '').replace(/项目$/, '项目')
     if (pm[1] || pm[2] || pm[3]) project = project.replace(/项目$/, '') + ''
     text = text.replace(pm[0], ' ')
-    chips.push(`📁 项目：${project}`)
   }
 
   // 3. 时间点：下午3点 / 15:30 / 晚上8点半 / 中午12点

@@ -13,19 +13,13 @@ interface Props {
 export default function ArchiveView({ tasks, onEdit, onRestore, onDelete }: Props) {
   const [confirmId, setConfirmId] = useState<string | null>(null)
 
-  // 归档页只展示已完成任务，按项目分组、截止日倒序
-  const groups = useMemo(() => {
-    const done = tasks.filter((t) => t.done).sort((a, b) => b.endDate.localeCompare(a.endDate))
-    const map: { project: string; tasks: Task[] }[] = []
-    for (const t of done) {
-      const g = map.find((x) => x.project === t.project)
-      if (g) g.tasks.push(t)
-      else map.push({ project: t.project, tasks: [t] })
-    }
-    return map
-  }, [tasks])
+  // 归档页只展示已完成任务，截止日倒序
+  const doneList = useMemo(
+    () => tasks.filter((t) => t.done).sort((a, b) => b.endDate.localeCompare(a.endDate)),
+    [tasks],
+  )
 
-  const total = groups.reduce((n, g) => n + g.tasks.length, 0)
+  const total = doneList.length
 
   return (
     <div className="px-4 pb-28">
@@ -38,18 +32,16 @@ export default function ArchiveView({ tasks, onEdit, onRestore, onDelete }: Prop
         </div>
       </div>
 
-      {groups.length === 0 && (
+      {doneList.length === 0 && (
         <div className="mt-16 text-center text-gray-300">
           <div className="text-5xl mb-3">🗃️</div>
           <div className="text-sm">还没有归档的事项</div>
         </div>
       )}
 
-      {groups.map((g) => (
-        <div key={g.project} className="mt-4">
-          <div className="text-xs font-semibold text-gray-400 mb-2">📁 {g.project}（{g.tasks.length}）</div>
-          <div className="space-y-2">
-            {g.tasks.map((t) => (
+      {doneList.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {doneList.map((t) => (
               <div key={t.id} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
                 <button onClick={() => onEdit(t)} className="flex-1 min-w-0 text-left flex items-center gap-1">
                   <div className="flex-1 min-w-0">
@@ -86,10 +78,9 @@ export default function ArchiveView({ tasks, onEdit, onRestore, onDelete }: Prop
                   {confirmId === t.id ? '确认' : ''}
                 </button>
               </div>
-            ))}
-          </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   )
 }
