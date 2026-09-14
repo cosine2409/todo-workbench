@@ -170,6 +170,20 @@ export function useTasks() {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
   }, [])
 
+  /** 记录今日进度：note 为空字符串表示撤销今天的记录 */
+  const logProgress = useCallback((id: string, note: string) => {
+    const today = todayStr()
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t
+        const progress = { ...(t.progress ?? {}) }
+        if (note.trim()) progress[today] = note.trim()
+        else delete progress[today]
+        return { ...t, progress }
+      }),
+    )
+  }, [])
+
   const removeTask = useCallback((id: string) => {
     setTasks((prev) => {
       const victim = prev.find((t) => t.id === id)
@@ -323,6 +337,7 @@ export function useTasks() {
     addTask,
     toggleDone,
     updateTask,
+    logProgress,
     removeTask,
     sync: {
       enabled: SYNC_ENABLED,

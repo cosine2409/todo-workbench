@@ -27,7 +27,7 @@ function Workbench() {
   const [editing, setEditing] = useState<Task | null>(null)
   const [undoInfo, setUndoInfo] = useState<{ id: string; title: string } | null>(null)
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const { tasks, addTask, toggleDone, updateTask, removeTask, sync } = useTasks()
+  const { tasks, addTask, toggleDone, updateTask, logProgress, removeTask, sync } = useTasks()
 
   // 完成后 6 秒内可撤销，防止误触
   const completeWithUndo = (id: string) => {
@@ -57,7 +57,7 @@ function Workbench() {
 
   return (
     <div className="min-h-dvh bg-white max-w-lg mx-auto relative">
-      {tab === 'today' && <TodayView tasks={tasks} onEdit={setEditing} onComplete={completeWithUndo} />}
+      {tab === 'today' && <TodayView tasks={tasks} onEdit={setEditing} onComplete={completeWithUndo} onLog={logProgress} />}
       {tab === 'calendar' && <CalendarView tasks={tasks} onEdit={setEditing} />}
       {tab === 'gantt' && <GanttView tasks={tasks} onEdit={setEditing} />}
       {tab === 'archive' && (

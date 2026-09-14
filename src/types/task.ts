@@ -34,6 +34,8 @@ export interface Task {
   externalId?: string
   /** 阶段列表（脚本/拍摄/后期），为空表示未拆分阶段 */
   stages?: TaskStage[]
+  /** 每日进度记录：{ "2026-09-14": "今天写了两版脚本" } */
+  progress?: Record<string, string>
 }
 
 /** 外部同步文件（data/feishu-tasks.json）的条目结构 */
